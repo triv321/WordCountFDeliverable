@@ -106,33 +106,88 @@ if (heroStats) {
     observer.observe(heroStats);
 }
 
+// API Configuration
+const API_URL = 'http://localhost:5000';
+
 // Contact Form Handling
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const button = contactForm.querySelector('button[type="submit"]');
+        const originalText = button.textContent;
+        
+        // Disable button during submission
+        button.disabled = true;
+        button.textContent = 'Sending...';
         
         const formData = new FormData(contactForm);
         const data = Object.fromEntries(formData);
         
-        // Simulate form submission
-        console.log('Form submitted:', data);
-        
-        // Show success message
-        const button = contactForm.querySelector('button[type="submit"]');
-        const originalText = button.textContent;
-        button.textContent = 'Message Sent!';
-        button.style.background = 'var(--secondary-color)';
-        
-        // Reset form
-        contactForm.reset();
+        try {
+            // Submit to API
+            const response = await fetch(`${API_URL}/api/contact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Show success message
+                button.textContent = '✓ Message Sent!';
+                button.style.background = 'var(--secondary-color)';
+                
+                // Reset form
+                contactForm.reset();
+                
+                // Track analytics
+                trackAnalytics('contact_form_success', {
+                    company: data.company
+                });
+            } else {
+                // Show error message
+                button.textContent = '✗ Error: ' + result.error;
+                button.style.background = '#ff4444';
+            }
+        } catch (error) {
+            console.error('Form submission error:', error);
+            // Fallback to local storage if API is not available
+            localStorage.setItem('pending_contact', JSON.stringify(data));
+            button.textContent = '✓ Saved Locally';
+            button.style.background = '#ffaa00';
+            contactForm.reset();
+        }
         
         // Reset button after 3 seconds
         setTimeout(() => {
+            button.disabled = false;
             button.textContent = originalText;
             button.style.background = '';
         }, 3000);
     });
+}
+
+// Track analytics to API
+async function trackAnalytics(eventType, eventData) {
+    try {
+        await fetch(`${API_URL}/api/analytics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                event_type: eventType,
+                event_data: eventData
+            })
+        });
+    } catch (error) {
+        console.log('Analytics tracking skipped (API not available)');
+    }
 }
 
 // Smooth scroll for anchor links
@@ -297,6 +352,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Add loading state
     document.body.classList.add('loaded');
+    
+    // Track page view
+    trackAnalytics('page_view', {
+        page: window.location.pathname,
+        referrer: document.referrer,
+        userAgent: navigator.userAgent
+    });
 });
 
 // Handle viewport resize for responsive adjustments

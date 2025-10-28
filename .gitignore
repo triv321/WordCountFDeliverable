@@ -28,3 +28,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 server.log
+api_server.log
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+contacts_export.csv
